@@ -1,0 +1,49 @@
+name: Deploy Pages
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Finalize
+        env:
+          A62952: ${{ secrets.A62952 }}
+          B1C1BC: ${{ secrets.B1C1BC }}
+        run: |
+          python3 -c "
+          import os, pathlib, sys
+          gm = os.environ.get('A62952', '')
+          bm = os.environ.get('B1C1BC', '')
+          count = 0
+          for p in pathlib.Path('.').rglob('*.html'):
+              try:
+                  s = p.read_text(encoding='utf-8')
+              except (OSError, UnicodeDecodeError):
+                  continue
+              s2 = s.replace('<!-- ac4a367c4b7f8aaf4339bc63f98dd6df80 -->', gm)
+              s2 = s2.replace('<!-- b49e82c364a0aa7b30102407fdbe3896 -->', bm)
+              if s2 != s:
+                  p.write_text(s2, encoding='utf-8')
+                  count += 1
+          if count == 0:
+              sys.exit(1)
+          "
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
