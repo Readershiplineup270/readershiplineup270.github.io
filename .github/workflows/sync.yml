@@ -1,0 +1,85 @@
+# Daily refresh of manifest.json.
+#
+# Fetches the bot list from ai.robots.txt, merges it with our descriptions in
+# data/bots.json and commits manifest.json when the list changed. Bots that are
+# not described yet are listed in one open issue labelled "new-bots".
+
+name: Sync bot list
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'data/**'
+      - 'scripts/**'
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Fetch ai.robots.txt
+        run: curl -fsSL -o robots.json https://raw.githubusercontent.com/ai-robots-txt/ai.robots.txt/main/robots.json
+
+      - name: Build manifest
+        run: php scripts/build-manifest.php robots.json data/bots.json manifest.json new-bots.md
+
+      - name: Commit when the list changed
+        run: |
+          if git diff --quiet -- manifest.json; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "chore: refresh bot list from ai.robots.txt"
+          git push
+
+      - name: Issue for bots not described yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          number=$(gh issue list --label new-bots --state open --json number --jq '.[0].number // empty')
+
+          if [ ! -s new-bots.md ]; then
+            if [ -n "$number" ]; then
+              gh issue close "$number" --comment "Every bot in the list is described now."
+            fi
+            exit 0
+          fi
+
+          {
+            echo "These bots come from ai.robots.txt and have no description of ours yet."
+            echo "Until they get one, the manifest publishes them with category \`other\` and"
+            echo "recommendation \`allow\`. Describe them in \`data/bots.json\`."
+            echo
+            cat new-bots.md
+          } > body.md
+
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file body.md
+          else
+            gh label create new-bots --color FBCA04 --description "Bots to describe in data/bots.json" 2>/dev/null || true
+            gh issue create --title "Bots to describe" --label new-bots --body-file body.md
+          fi
