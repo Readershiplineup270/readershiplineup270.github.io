@@ -1,10 +1,12 @@
 # Daily refresh of manifest.json.
 #
-# Fetches the bot list from ai.robots.txt, merges it with our descriptions in
-# data/bots.json and commits manifest.json when the list changed. Bots that are
-# not described yet are listed in one open issue labelled "new-bots".
+# 1. Fetches the bot list from ai.robots.txt and merges it with our descriptions
+#    in data/bots.json. Bots that are not described yet are listed in one open
+#    issue labelled "new-bots".
+# 2. Reads the latest release of every module and theme in the organisation.
+# manifest.json is committed only when something changed.
 
-name: Sync bot list
+name: Sync manifest
 
 on:
   schedule:
@@ -41,10 +43,15 @@ jobs:
       - name: Fetch ai.robots.txt
         run: curl -fsSL -o robots.json https://raw.githubusercontent.com/ai-robots-txt/ai.robots.txt/main/robots.json
 
-      - name: Build manifest
+      - name: Build bot list
         run: php scripts/build-manifest.php robots.json data/bots.json manifest.json new-bots.md
 
-      - name: Commit when the list changed
+      - name: Build release list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: php scripts/build-releases.php manifest.json quinceproject
+
+      - name: Commit when something changed
         run: |
           if git diff --quiet -- manifest.json; then
             echo "No change."
@@ -53,7 +60,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add manifest.json
-          git commit -m "chore: refresh bot list from ai.robots.txt"
+          git commit -m "chore: refresh manifest"
           git push
 
       - name: Issue for bots not described yet

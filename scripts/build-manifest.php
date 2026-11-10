@@ -10,7 +10,8 @@
 declare(strict_types=1);
 
 /*
- * Builds manifest.json from the ai.robots.txt list and our own bot descriptions.
+ * Writes the "robots" section of manifest.json from the ai.robots.txt list and our
+ * own bot descriptions. Other sections of the manifest are left as they are.
  *
  * Usage: php scripts/build-manifest.php <upstream robots.json> <data/bots.json> <manifest.json> [<new-bots.md>]
  *
@@ -100,12 +101,13 @@ if (is_array($previous) && ($previous['robots']['bots'] ?? null) === $bots && is
     $updated = (string) $previous['robots']['updated'];
 }
 
-$manifest = [
-    'robots' => [
-        'updated' => $updated,
-        'source' => 'https://github.com/ai-robots-txt/ai.robots.txt',
-        'bots' => $bots,
-    ],
+// Only the "robots" section is ours; the release sections are written by
+// build-releases.php and stay as they are.
+$manifest = is_array($previous) ? $previous : [];
+$manifest['robots'] = [
+    'updated' => $updated,
+    'source' => 'https://github.com/ai-robots-txt/ai.robots.txt',
+    'bots' => $bots,
 ];
 
 file_put_contents($outFile, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");

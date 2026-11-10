@@ -1,15 +1,22 @@
 # Quince manifest
 
-**The index Quince modules read at https://quinceproject.github.io/manifest.json.**
+**The index Quince modules read at https://quinceproject.github.io/manifest.json: the
+crawler list and the latest releases.**
 
 This repository is published with GitHub Pages and serves one file, `manifest.json`.
 Quince modules installed in shops download it once a day. There is nothing here to
 install.
 
-Today the manifest carries the **list of crawlers and AI agents** read by
-[Quince Robots](https://github.com/quinceproject/quince_robots). When the merchant
-clicks **Check for new bots**, the module downloads this file and adds the bots it
-does not know yet.
+The manifest carries two things:
+
+- the **list of crawlers and AI agents** read by
+  [Quince Robots](https://github.com/quinceproject/quince_robots). When the merchant
+  clicks **Check for new bots**, the module downloads this file and adds the bots it
+  does not know yet;
+- the **latest release of every Quince module and of the Quince theme**: version,
+  package address and the package's SHA-256. Modules use it to tell the merchant that
+  an update is out, and check the downloaded package against the SHA-256 before they
+  install it.
 
 ---
 
@@ -54,6 +61,18 @@ when the list also has them without one.
 If the downloaded list looks broken (fewer than 100 entries), the workflow stops and
 the published file stays as it was.
 
+## Releases
+
+The same daily workflow reads the latest release of every public repository in
+[github.com/quinceproject](https://github.com/quinceproject). A repository counts when
+its release carries a ZIP named after it (`quince_search.zip` in `quince_search`).
+Repositories with the topic `prestashop-theme` go to `themes`, the rest to `modules`.
+Each package is downloaded once to record its SHA-256.
+
+A new release shows up in the manifest at the next run, so within a day. To publish
+it straight away, run the workflow by hand (**Actions → Sync manifest → Run
+workflow**).
+
 ## Describing a bot
 
 Add or edit its entry in `data/bots.json`, under the key the module uses: the token in
@@ -93,6 +112,18 @@ php scripts/build-manifest.php robots.json data/bots.json manifest.json new-bots
     "bots": {
       "gptbot": { "token": "GPTBot", "category": "training", "…": "…" }
     }
+  },
+  "modules": {
+    "quince_search": {
+      "repository": "quinceproject/quince_search",
+      "version": "0.1.1",
+      "package": "https://github.com/quinceproject/quince_search/releases/download/v0.1.1/quince_search.zip",
+      "sha256": "124e003081eb2fc4cf79f05ac17e874b75f86602b697e7df7e9b716ff60ebec6",
+      "notes": "https://github.com/quinceproject/quince_search/releases/tag/v0.1.1"
+    }
+  },
+  "themes": {
+    "quince": { "repository": "quinceproject/quince", "version": "0.1.0", "…": "…" }
   }
 }
 ```
